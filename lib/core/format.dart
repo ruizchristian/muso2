@@ -35,3 +35,9 @@ String formatCount(int value) {
 
   return buffer.toString();
 }
+
+/// Download sizes: "51 MB", or one decimal under 10 MB where the difference is meaningful.
+String formatMegabytes(int bytes) {
+  final mb = bytes / (1024 * 1024);
+  return '${mb < 10 ? mb.toStringAsFixed(1) : mb.round()} MB';
+}

@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'routes.dart';
 import 'state/library_controller.dart';
 import 'state/theme_controller.dart';
+import 'state/update_controller.dart';
+import 'ui/common/update_banner.dart';
 import 'ui/player/mini_player.dart';
 
 class MusoApp extends StatelessWidget {
@@ -17,6 +19,8 @@ class MusoApp extends StatelessWidget {
         // Outermost, so everything below can read the active palette.
         ChangeNotifierProvider(create: (_) => ThemeController()),
         ChangeNotifierProvider(create: (_) => LibraryController()),
+        // Not lazy: the launch check should run whether or not anything has read it yet.
+        ChangeNotifierProvider(create: (_) => UpdateController()..init(), lazy: false),
       ],
       child: const _ThemedApp(),
     );
@@ -68,7 +72,7 @@ class _ThemedApp extends StatelessWidget {
         // Mounted above the navigator so the mini player persists across tab and stack changes.
         child: Material(
           type: MaterialType.transparency,
-          child: Stack(children: [child!, const MiniPlayerOverlay()]),
+          child: Stack(children: [child!, const MiniPlayerOverlay(), const UpdateBanner()]),
         ),
       ),
     );

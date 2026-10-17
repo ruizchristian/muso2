@@ -136,19 +136,30 @@ class PlayerEngine implements TransportCommands {
     _persistTimer?.cancel();
     _persistTimer = Timer(const Duration(seconds: 1), () {
       _persistTimer = null;
-      final state = _state;
-      unawaited(
-        _writePlayback(
-          PersistedPlayback(
-            queue: [for (final track in state.queue) track.id],
-            currentIndex: state.currentIndex < 0 ? 0 : state.currentIndex,
-            positionMs: progress.value.positionMs,
-            shuffle: state.shuffle,
-            repeat: state.repeat,
-          ),
-        ),
-      );
+      unawaited(_persistNow());
     });
+  }
+
+  Future<void> _persistNow() {
+    final state = _state;
+    return _writePlayback(
+      PersistedPlayback(
+        queue: [for (final track in state.queue) track.id],
+        currentIndex: state.currentIndex < 0 ? 0 : state.currentIndex,
+        positionMs: progress.value.positionMs,
+        shuffle: state.shuffle,
+        repeat: state.repeat,
+      ),
+    );
+  }
+
+  /// Writes the queue and position immediately instead of after the debounce. Used before
+  /// something is about to kill the process — an app update — so the next launch resumes exactly
+  /// where the user was.
+  Future<void> flushPersist() {
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    return _persistNow();
   }
 
   void _onStatus(OutputStatus status) {

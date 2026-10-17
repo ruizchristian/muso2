@@ -38,4 +38,5 @@ abstract final class AppIcons {
   static const close = Icons.close_rounded;
   static const edit = Icons.edit_rounded;
   static const delete = Icons.delete_outline_rounded;
+  static const update = Icons.system_update_rounded;
 }

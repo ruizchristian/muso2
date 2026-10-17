@@ -5,9 +5,11 @@ import '../core/format.dart';
 import '../media/media_backend.dart';
 import '../state/library_controller.dart';
 import '../state/theme_controller.dart';
+import '../state/update_controller.dart';
 import '../theme/layout.dart';
 import '../theme/themes.dart';
 import '../ui/common/states.dart';
+import '../ui/common/update_banner.dart';
 import '../ui/layout/layout_helpers.dart';
 import '../ui/widgets/app_icons.dart';
 import '../ui/widgets/buttons.dart';
@@ -118,10 +120,20 @@ class SettingsScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        SectionHeader(title: 'Updates'),
+                        _UpdateSettings(),
+                      ],
+                    ),
+                  ),
+                  const ContentContainer(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                         SectionHeader(title: 'About'),
                         MusoText(
-                          'Muso plays audio files stored on this device. It makes no network '
-                          'requests, has no account, and is not affiliated with Spotify.',
+                          'Muso plays audio files stored on this device. Apart from checking for '
+                          'app updates, it makes no network requests, has no account, and is not '
+                          'affiliated with Spotify.',
                           tone: TextTone.muted,
                         ),
                       ],
@@ -133,6 +145,102 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Update status, plus a manual check. Everything here is read-only except the one button.
+class _UpdateSettings extends StatelessWidget {
+  const _UpdateSettings();
+
+  @override
+  Widget build(BuildContext context) {
+    final updates = context.updates;
+    final installed = updates.installed;
+    final update = updates.update;
+    final status = updates.status;
+
+    if (status == UpdateStatus.unsupported) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Card(
+            children: [_Row(label: 'Updates', value: 'Not available')],
+          ),
+          SizedBox(height: 8),
+          MusoText(
+            'In-app updates only work in release builds on Android.',
+            variant: TextVariant.caption,
+            tone: TextTone.faint,
+          ),
+        ],
+      );
+    }
+
+    final lastChecked = updates.lastCheckedAt;
+    final (label, primary) = switch (status) {
+      UpdateStatus.downloading => (
+        'Downloading — ${((updates.progress ?? 0) * 100).round()}%',
+        true,
+      ),
+      UpdateStatus.ready => ('Install update', true),
+      UpdateStatus.available => (
+        'Download and install (${formatMegabytes(update!.sizeBytes)})',
+        true,
+      ),
+      _ => ('Check for updates', false),
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Card(
+          children: [
+            _Row(label: 'Installed', value: '${installed!.version} (${installed.build})'),
+            if (update != null)
+              _Row(label: 'Available', value: '${update.version} (${update.build})'),
+            _Row(
+              label: 'Last checked',
+              value: lastChecked == null
+                  ? 'Not yet'
+                  : TimeOfDay.fromDateTime(lastChecked).format(context),
+            ),
+          ],
+        ),
+        if (updates.status == UpdateStatus.downloading) ...[
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(Radii.pill),
+            child: LinearProgressIndicator(
+              value: updates.progress,
+              minHeight: 4,
+              color: context.palette.accent,
+              backgroundColor: context.palette.elevated,
+            ),
+          ),
+        ],
+        if (updates.error != null) ...[
+          const SizedBox(height: 8),
+          MusoText(updates.error!, variant: TextVariant.caption, tone: TextTone.danger),
+        ],
+        if (updates.notice != null) ...[
+          const SizedBox(height: 8),
+          MusoText(updates.notice!, variant: TextVariant.caption, tone: TextTone.muted),
+        ],
+        const SizedBox(height: 16),
+        MusoButton(
+          label: label,
+          variant: primary ? ButtonVariant.primary : ButtonVariant.secondary,
+          block: true,
+          loading: status == UpdateStatus.checking,
+          disabled: status == UpdateStatus.downloading,
+          onPressed: primary ? () => startUpdate(context) : updates.checkNow,
+        ),
+        if (status == UpdateStatus.idle && lastChecked != null) ...[
+          const SizedBox(height: 8),
+          const MusoText('Muso is up to date.', variant: TextVariant.caption, tone: TextTone.faint),
+        ],
+      ],
     );
   }
 }

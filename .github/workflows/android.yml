@@ -102,6 +102,8 @@ jobs:
           path: ${{ steps.build.outputs.name }}
           retention-days: 30
 
+      # The in-app updater reads the latest release and installs the `Muso-<version>-<build>.apk`
+      # attached here, so the asset name format is part of the app's contract (lib/update).
       - name: Attach APK to the release
         if: github.event_name == 'release'
         env:
