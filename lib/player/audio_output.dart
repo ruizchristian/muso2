@@ -200,6 +200,9 @@ class JustAudioOutput extends AudioOutput {
           // Lock-screen controls are also what keeps Android alive in the background.
           androidNotificationOngoing: true,
           androidStopForegroundOnPause: true,
+          // The default thumbnail is 192px, which the lock screen stretches to full width.
+          artDownscaleWidth: 512,
+          artDownscaleHeight: 512,
         ),
       );
     } catch (_) {
@@ -218,6 +221,12 @@ class JustAudioOutput extends AudioOutput {
         artist: track.artist,
         album: track.album,
         duration: Duration(milliseconds: track.durationMs),
+        // The song's own media-store entry. With `loadThumbnailUri` set, audio_service asks the
+        // media store's thumbnailer for it, which returns the cover embedded in the file — the
+        // same source as the in-app artwork. A file without a cover just shows none.
+        artUri: Uri.parse('content://media/external/audio/media/${track.id}'),
+        // Must be a string: the Android side reads it with getString, so 	rue counts as unset.
+        extras: const {'loadThumbnailUri': 'true'},
       ),
     );
 
