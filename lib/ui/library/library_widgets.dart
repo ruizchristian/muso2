@@ -18,9 +18,12 @@ const albumCardWidth = 148.0;
 Alignment gradientPoint(double x, double y) => Alignment(x * 2 - 1, y * 2 - 1);
 
 class AlbumCard extends StatelessWidget {
-  const AlbumCard({super.key, required this.album});
+  const AlbumCard({super.key, required this.album, this.size = albumCardWidth});
 
   final TrackGroup album;
+
+  /// Artwork edge, which is also the card width.
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -31,16 +34,11 @@ class AlbumCard extends StatelessWidget {
         excludeChildSemantics: true,
         onTap: () => navigatorKey.currentState?.pushNamed(AppRoutes.album, arguments: album.id),
         child: SizedBox(
-          width: albumCardWidth,
+          width: size,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Artwork(
-                seed: album.id,
-                size: albumCardWidth,
-                kind: ArtworkKind.album,
-                gradient: true,
-              ),
+              Artwork(seed: album.id, size: size, kind: ArtworkKind.album, gradient: true),
               const SizedBox(height: 8),
               MusoText(album.name, variant: TextVariant.label, maxLines: 1),
               const SizedBox(height: 2),
