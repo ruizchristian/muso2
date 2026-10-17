@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the RN app's splash and window background. -->
+    <color name="splash_background">#121212</color>
+    <color name="ic_launcher_background">#000000</color>
+</resources>

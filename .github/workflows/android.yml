@@ -1,0 +1,120 @@
+name: Android build
+
+# GitHub-hosted runners are free for public repos (and 2,000 min/month for private ones), so unlike
+# the RN app's EAS builds there is no per-build credit to ration: every push to main produces an
+# installable APK. Pull requests only run the checks.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', '.gitignore']
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# A newer push supersedes an in-flight build rather than queueing another one.
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # attach the APK to releases
+
+jobs:
+  build:
+    name: Check and build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Pinned to the version the app is developed against, so CI and local builds match.
+          flutter-version: 3.47.7
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Same gate as scripts/build-apk.ps1. Failures here surface in a minute instead of after a
+      # full Gradle build.
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Stop here for pull requests
+        if: github.event_name == 'pull_request'
+        run: echo "Checks passed. APKs are only built for main, releases and manual runs."
+
+      # The same key as local builds, so a CI APK installs over a local one and vice versa.
+      # Secrets are set once in Settings > Secrets and variables > Actions.
+      - name: Restore signing key
+        if: github.event_name != 'pull_request'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. Without it the APK would be signed with a throwaway key and could not update an existing install."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEYSTORE_PASSWORD
+          keyAlias=upload
+          storeFile=upload-keystore.jks
+          EOF
+
+      - name: Build release APK
+        id: build
+        if: github.event_name != 'pull_request'
+        run: |
+          # yyMMddHH in UTC, matching scripts/build-apk.ps1, so builds from either place always
+          # install as an upgrade.
+          BUILD_NUMBER=$(date -u +%y%m%d%H)
+          VERSION=$(grep -E '^version:' pubspec.yaml | sed -E 's/version:[[:space:]]*([^+[:space:]]+).*/\1/')
+
+          flutter build apk --release --build-number "$BUILD_NUMBER"
+
+          NAME="Muso-$VERSION-$BUILD_NUMBER.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.name }}
+          path: ${{ steps.build.outputs.name }}
+          retention-days: 30
+
+      - name: Attach APK to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "${{ steps.build.outputs.name }}" --clobber
+
+      - name: Summarise
+        if: success() && github.event_name != 'pull_request'
+        run: |
+          {
+            echo "## Android APK ready"
+            echo ""
+            echo "\`${{ steps.build.outputs.name }}\` is attached to this run under **Artifacts**."
+            echo ""
+            echo "Ref \`${{ github.ref_name }}\` · commit \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
