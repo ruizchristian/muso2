@@ -14,7 +14,9 @@ import '../widgets/muso_text.dart';
 import '../widgets/pressable_scale.dart';
 
 /// Persistent capsule above the tab bar. Mounted once above the navigator so it survives every
-/// route change, and hidden while the full-screen player is open so the two never overlap.
+/// route change, and hidden wherever it would sit on top of something the user is working with:
+/// the full-screen player, the edit form (whose fields and Save button it covered, and which it
+/// followed up above the keyboard), and any sheet or dialog.
 class MiniPlayerOverlay extends StatelessWidget {
   const MiniPlayerOverlay({super.key});
 
@@ -23,11 +25,16 @@ class MiniPlayerOverlay extends StatelessWidget {
     final engine = PlayerEngine.instance;
     final media = MediaQuery.of(context);
 
-    return ValueListenableBuilder<String?>(
-      valueListenable: routeTracker.topRoute,
-      builder: (context, route, _) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([routeTracker.topRoute, routeTracker.popupOpen]),
+      builder: (context, _) {
+        final route = routeTracker.topRoute.value;
         final hasTabBar = route == AppRoutes.tabs;
-        final hidden = route == AppRoutes.player || route == null;
+        final hidden =
+            route == null ||
+            route == AppRoutes.player ||
+            route == AppRoutes.trackEdit ||
+            routeTracker.popupOpen.value;
 
         // Clear of the tab bar where there is one, otherwise clear of the safe area — plus the gap
         // a floating capsule needs.

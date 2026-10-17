@@ -19,15 +19,19 @@ abstract final class AppRoutes {
 /// navigates through this key.
 final navigatorKey = GlobalKey<NavigatorState>();
 
-/// Tracks the top-most *page* route, ignoring dialogs and sheets, so the overlays above the
-/// navigator know whether a tab bar is showing and whether the full player is open.
+/// Tracks the top-most *page* route, so the overlays above the navigator know whether a tab bar
+/// is showing and whether the full player is open — and, separately, whether a sheet or dialog
+/// is on top. Those overlays are painted above every route, so without the second flag they cover
+/// the bottom of any sheet.
 class RouteTracker extends NavigatorObserver {
   final topRoute = ValueNotifier<String?>(AppRoutes.tabs);
+  final popupOpen = ValueNotifier(false);
   final _stack = <Route<dynamic>>[];
 
   void _sync() {
     final pages = _stack.whereType<PageRoute<dynamic>>();
     topRoute.value = pages.isEmpty ? null : pages.last.settings.name;
+    popupOpen.value = _stack.isNotEmpty && _stack.last is PopupRoute<dynamic>;
   }
 
   @override
