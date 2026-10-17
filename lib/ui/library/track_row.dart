@@ -58,7 +58,11 @@ class TrackRow extends StatelessWidget {
                 dimension: _artworkSize,
                 child: Stack(
                   children: [
-                    Artwork(seed: trackSeed(track.album, track.artist), size: _artworkSize),
+                    Artwork(
+                      seed: trackSeed(track.album, track.artist),
+                      size: _artworkSize,
+                      coverIds: [track.id],
+                    ),
                     if (onToggleFavorite != null)
                       Positioned(
                         left: 0,

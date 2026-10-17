@@ -114,6 +114,8 @@ class _Header extends StatelessWidget {
               child: Artwork(
                 seed: group.id,
                 size: 200,
+                // Artists have no cover of their own; a single album's art would misrepresent them.
+                coverIds: kind == GroupKind.album ? coverIdsFor(group) : const [],
                 kind: kind == GroupKind.album ? ArtworkKind.album : ArtworkKind.artist,
                 gradient: true,
               ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../media/cover_art.dart';
 import '../media/group.dart';
 import '../media/media_backend.dart' as media;
 import '../media/media_backend.dart' show AudioPermissionState, DeleteResult;
@@ -84,6 +85,8 @@ class LibraryController extends ChangeNotifier {
   Future<void> rescan() async {
     if (_scanning) return;
     _scanning = true;
+    // Files may have gained or lost embedded covers since they were last read.
+    CoverArt.clear();
 
     _update(() {
       status = LibraryStatus.scanning;

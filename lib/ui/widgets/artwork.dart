@@ -1,11 +1,15 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../../core/color.dart';
+import '../../media/cover_art.dart';
+import '../../media/track.dart';
 import '../../state/theme_controller.dart';
 import '../../theme/layout.dart';
 import 'app_icons.dart';
+import 'pressable_scale.dart';
 
 /// Stable string hash (djb2, 32-bit like the RN app). Same key always maps to the same colour, so
 /// an album keeps its colour across both apps.
@@ -30,30 +34,39 @@ extension ArtworkColorContext on BuildContext {
 /// The seed every surface uses for a track, so its tile, mini player and backdrop always match.
 String trackSeed(String album, String artist) => '$album:$artist';
 
-/// What the tile stands for. Drives the fallback's shape, glyph and decoration, so a caller states
-/// what the thing *is* rather than how it should look.
+/// How many of a group's tracks are tried for its cover. Albums are usually tagged consistently,
+/// so the first few settle it; trying every track would make one tile cost a whole album's reads.
+const _groupCoverAttempts = 3;
+
+/// Track ids to look for a group's cover in, in order.
+List<String> coverIdsFor(TrackGroup group) => [
+  for (final track in group.tracks.take(_groupCoverAttempts)) track.id,
+];
+
+/// What the tile stands for. Drives the placeholder's shape and glyph.
 enum ArtworkKind { track, album, artist }
 
-/// Artwork tile.
-///
-/// The media store exposes no embedded cover art, so rather than an identical grey square
-/// everywhere, the tile is a colour derived deterministically from the album key — the same album
-/// always gets the same colour, which makes grids scannable.
-///
-/// `gradient` opts large tiles into a decorated form; it is off by default because it costs
-/// several extra layers per tile, and the detail is illegible much below 56px anyway.
+/// Artwork tile: the cover embedded in the audio file when there is one, otherwise a flat tile in
+/// a colour derived from `seed` — the same album always gets the same colour, which keeps grids
+/// scannable even without covers.
 class Artwork extends StatelessWidget {
   const Artwork({
     super.key,
     required this.seed,
     required this.size,
+    this.coverIds = const [],
     this.kind = ArtworkKind.track,
     this.gradient = false,
   });
 
   final String seed;
   final double size;
+
+  /// Tracks whose embedded cover to show, first match wins. Empty keeps the placeholder.
+  final List<String> coverIds;
   final ArtworkKind kind;
+
+  /// A soft diagonal shade on the placeholder, for large tiles where a flat block looks unfinished.
   final bool gradient;
 
   @override
@@ -61,10 +74,6 @@ class Artwork extends StatelessWidget {
     final palette = context.palette;
     final color = context.artworkColorFor(seed);
     final isRound = kind == ArtworkKind.artist;
-
-    // A disc glyph on top of drawn vinyl grooves is the same idea said twice; the grooves already
-    // are the record.
-    final showGlyph = !(gradient && kind == ArtworkKind.album);
 
     final glyph = switch (kind) {
       ArtworkKind.track => AppIcons.music,
@@ -86,76 +95,89 @@ class Artwork extends StatelessWidget {
               ? LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [shade(color, 0.22), color, shade(color, -0.3)],
+                  colors: [shade(color, 0.12), shade(color, -0.12)],
                 )
               : null,
         ),
         child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.hardEdge,
+          fit: StackFit.expand,
           children: [
-            if (gradient) ..._decoration(kind, palette.glow, palette.accent),
-            if (showGlyph)
-              Icon(
+            Center(
+              child: Icon(
                 glyph,
-                size: max(16, size * 0.36),
-                color: palette.content.withValues(alpha: 0.82),
+                size: max(16, size * 0.34),
+                color: palette.content.withValues(alpha: 0.7),
+              ),
+            ),
+            if (coverIds.isNotEmpty)
+              _Cover(
+                // Keyed by source, so a recycled row never shows the previous track's cover while
+                // the new one loads.
+                key: ValueKey(coverIds.join(',')),
+                ids: coverIds,
+                pixels: size * MediaQuery.devicePixelRatioOf(context),
               ),
           ],
         ),
       ),
     );
   }
+}
 
-  /// Per-kind treatment, so the three tile types are told apart at a glance. Every dimension is a
-  /// fraction of `size`, so one tile scales from a 56px grid cell to the full-screen player art.
-  List<Widget> _decoration(ArtworkKind kind, Color glow, Color accent) {
-    Widget circle(double fraction, {Color? fill, Color? border}) => Container(
-      width: size * fraction,
-      height: size * fraction,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: fill,
-        border: border != null ? Border.all(color: border) : null,
-      ),
+/// The embedded cover, faded in over the placeholder once it has loaded. Stays invisible when the
+/// file has none.
+class _Cover extends StatefulWidget {
+  const _Cover({super.key, required this.ids, required this.pixels});
+
+  final List<String> ids;
+  final double pixels;
+
+  @override
+  State<_Cover> createState() => _CoverState();
+}
+
+class _CoverState extends State<_Cover> {
+  late Future<Uint8List?> _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = CoverArt.load(widget.ids, widget.pixels);
+  }
+
+  @override
+  void didUpdateWidget(_Cover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A bigger tile for the same source (the player art growing) needs a sharper decode.
+    if (widget.pixels > oldWidget.pixels) _bytes = CoverArt.load(widget.ids, widget.pixels);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: _bytes,
+      builder: (context, snapshot) {
+        final bytes = snapshot.data;
+        if (bytes == null) return const SizedBox.shrink();
+
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          // Decode at display size, not the file's size: a list of full-resolution covers would
+          // hold tens of megabytes of bitmaps for 44px rows.
+          cacheWidth: widget.pixels.ceil(),
+          gaplessPlayback: true,
+          frameBuilder: (context, child, frame, synchronous) {
+            if (synchronous) return child;
+            return AnimatedOpacity(
+              opacity: frame == null ? 0 : 1,
+              duration: Duration(milliseconds: reducedMotion(context) ? 0 : 180),
+              child: child,
+            );
+          },
+          errorBuilder: (context, error, stack) => const SizedBox.shrink(),
+        );
+      },
     );
-
-    switch (kind) {
-      case ArtworkKind.album:
-        return [
-          // Grooves. Three rings read as vinyl; more turns to moiré once scaled into a rail.
-          for (final fraction in const [0.92, 0.72, 0.52])
-            circle(fraction, border: glow.withValues(alpha: 0.16)),
-          // Dark centre, then the label — the one spot of solid accent on the tile.
-          circle(0.34, fill: Colors.black.withValues(alpha: 0.35)),
-          circle(0.2, fill: accent),
-          // Spindle hole.
-          circle(0.06, fill: Colors.black.withValues(alpha: 0.55)),
-        ];
-      case ArtworkKind.artist:
-        // Nested circles of rising opacity — close enough to a radial spotlight at these sizes.
-        return [
-          circle(0.96, fill: glow.withValues(alpha: 0.06)),
-          circle(0.72, fill: glow.withValues(alpha: 0.09)),
-          circle(0.48, fill: glow.withValues(alpha: 0.14)),
-        ];
-      case ArtworkKind.track:
-        // Diagonal scan lines, overscaled so the ends clip past the corners.
-        return [
-          for (final (offset, alpha) in const [(-0.18, 0.22), (0.06, 0.12), (0.3, 0.07)])
-            Positioned(
-              left: -size * 0.3,
-              top: size * (0.5 + offset),
-              child: Transform.rotate(
-                angle: -35 * pi / 180,
-                child: Container(
-                  width: size * 1.6,
-                  height: max(1, size * 0.02),
-                  color: glow.withValues(alpha: alpha),
-                ),
-              ),
-            ),
-        ];
-    }
   }
 }

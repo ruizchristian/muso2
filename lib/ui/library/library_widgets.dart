@@ -38,7 +38,13 @@ class AlbumCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Artwork(seed: album.id, size: size, kind: ArtworkKind.album, gradient: true),
+              Artwork(
+                seed: album.id,
+                size: size,
+                kind: ArtworkKind.album,
+                gradient: true,
+                coverIds: coverIdsFor(album),
+              ),
               const SizedBox(height: 8),
               MusoText(album.name, variant: TextVariant.label, maxLines: 1),
               const SizedBox(height: 2),

@@ -226,7 +226,7 @@ class _NowPlayingPane extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Artwork(seed: seed, size: artSize, gradient: true),
+                child: Artwork(seed: seed, size: artSize, gradient: true, coverIds: [track.id]),
               ),
               const SizedBox(height: 40),
               Row(
