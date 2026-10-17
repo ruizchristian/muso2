@@ -6,6 +6,7 @@ import '../../player/engine.dart';
 import '../../routes.dart';
 import '../../state/theme_controller.dart';
 import '../../state/update_controller.dart';
+import '../../theme/layout.dart';
 import '../widgets/app_icons.dart';
 import '../widgets/buttons.dart';
 import '../widgets/glass_panel.dart';
@@ -119,47 +120,55 @@ class _BannerBody extends StatelessWidget {
     // never urgent enough to interrupt what they were reading.
     return Semantics(
       liveRegion: true,
-      child: GlassPanel(
-        tone: GlassTone.neon,
-        glow: true,
-        intensity: 45,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-          child: Row(
-            children: [
-              Icon(AppIcons.update, size: 20, color: palette.glow),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    MusoText(title, variant: TextVariant.label),
-                    const SizedBox(height: 2),
-                    MusoText(
-                      detail,
-                      variant: TextVariant.caption,
-                      tone: TextTone.muted,
-                      maxLines: 2,
-                    ),
-                  ],
+      // Solid backing: unlike the mini player, the banner sits over the screen's title text, which
+      // showed through the translucent pane and made both unreadable.
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: palette.base,
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+        child: GlassPanel(
+          tone: GlassTone.neon,
+          glow: true,
+          intensity: 45,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+            child: Row(
+              children: [
+                Icon(AppIcons.update, size: 20, color: palette.glow),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      MusoText(title, variant: TextVariant.label),
+                      const SizedBox(height: 2),
+                      MusoText(
+                        detail,
+                        variant: TextVariant.caption,
+                        tone: TextTone.muted,
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              MusoButton(
-                label: 'Install',
-                size: ControlSize.sm,
-                loading: updates.isBusy,
-                onPressed: () => startUpdate(context),
-              ),
-              MusoIconButton(
-                icon: AppIcons.close,
-                size: ControlSize.sm,
-                semanticLabel: 'Dismiss update notice',
-                color: palette.muted,
-                onPressed: context.read<UpdateController>().dismiss,
-              ),
-            ],
+                const SizedBox(width: 12),
+                MusoButton(
+                  label: 'Install',
+                  size: ControlSize.sm,
+                  loading: updates.isBusy,
+                  onPressed: () => startUpdate(context),
+                ),
+                MusoIconButton(
+                  icon: AppIcons.close,
+                  size: ControlSize.sm,
+                  semanticLabel: 'Dismiss update notice',
+                  color: palette.muted,
+                  onPressed: context.read<UpdateController>().dismiss,
+                ),
+              ],
+            ),
           ),
         ),
       ),
