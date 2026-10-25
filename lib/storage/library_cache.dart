@@ -94,6 +94,20 @@ Future<List<String>> readCachedFavorites() async =>
 Future<void> writeCachedFavorites(Iterable<String> trackIds) =>
     writePersisted(StorageKeys.favorites, {'trackIds': trackIds.toList()});
 
+/// Recent searches, newest first.
+Future<List<String>> readSearchHistory() async =>
+    await readPersisted(StorageKeys.searchHistory, (json) => _parseList(json['queries'], _id)) ??
+    const [];
+
+Future<void> writeSearchHistory(List<String> queries) async {
+  if (queries.isEmpty) {
+    await removePersisted(StorageKeys.searchHistory);
+    return;
+  }
+
+  await writePersisted(StorageKeys.searchHistory, {'queries': queries});
+}
+
 Future<TrackOverrides> readTrackOverrides() async =>
     await readPersisted(StorageKeys.overrides, (json) {
       final raw = json['overrides'];

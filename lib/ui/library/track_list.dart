@@ -28,6 +28,7 @@ class TrackList extends StatefulWidget {
     this.header,
     this.empty,
     this.scrollResetKey,
+    this.onPlay,
   });
 
   final List<Track> tracks;
@@ -42,6 +43,9 @@ class TrackList extends StatefulWidget {
   /// view (sort order); do NOT pass the track list, whose identity also changes on unrelated
   /// updates like play counts.
   final Object? scrollResetKey;
+
+  /// Called after a row is tapped and starts playing. Search uses it to remember the query.
+  final ValueChanged<Track>? onPlay;
 
   @override
   State<TrackList> createState() => _TrackListState();
@@ -89,6 +93,7 @@ class _TrackListState extends State<TrackList> {
     // not left lifted above a keyboard that is about to disappear.
     FocusManager.instance.primaryFocus?.unfocus();
     PlayerEngine.instance.playTracks(widget.tracks, widget.tracks.indexOf(track));
+    widget.onPlay?.call(track);
   }
 
   void _jumpToLetter(String letter) {

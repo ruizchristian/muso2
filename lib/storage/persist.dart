@@ -15,6 +15,7 @@ abstract final class StorageKeys {
   static const playCounts = 'my-music:play-counts:v1';
   static const theme = 'my-music:theme:v1';
   static const overrides = 'my-music:overrides:v1';
+  static const searchHistory = 'my-music:search-history:v1';
 }
 
 SharedPreferencesAsync? _prefs;

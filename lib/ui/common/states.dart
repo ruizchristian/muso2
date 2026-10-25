@@ -170,10 +170,14 @@ class MusoSearchBar extends StatelessWidget {
     super.key,
     required this.controller,
     this.placeholder = 'What do you want to listen to?',
+    this.onSubmitted,
   });
 
   final TextEditingController controller;
   final String placeholder;
+
+  /// The keyboard's search key.
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +198,7 @@ class MusoSearchBar extends StatelessWidget {
                 controller: controller,
                 autocorrect: false,
                 textInputAction: TextInputAction.search,
+                onSubmitted: onSubmitted,
                 // Keeps the caret and selection legible against the white field.
                 cursorColor: palette.base,
                 style: const TextStyle(color: Colors.black, fontSize: 16),

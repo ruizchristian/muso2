@@ -18,6 +18,7 @@ abstract final class AppIcons {
   static const chevronRight = Icons.chevron_right_rounded;
   static const arrowLeft = Icons.arrow_back_rounded;
   static const search = Icons.search_rounded;
+  static const history = Icons.history_rounded;
   static const music = Icons.music_note_rounded;
 
   /// Vinyl disc — reads as "album" at tile size far better than a note, which turns to mush.

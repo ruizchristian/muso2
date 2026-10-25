@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:music/core/alphabet.dart';
 import 'package:music/core/format.dart';
+import 'package:music/core/search_history.dart';
 import 'package:music/media/group.dart';
 import 'package:music/media/overrides.dart';
 import 'package:music/media/parse_filename.dart';
@@ -195,6 +196,29 @@ void main() {
       expect(Track.tryParse({'id': '1'}), isNull);
       expect(Track.tryParse({...track('1').toJson(), 'durationMs': -1}), isNull);
       expect(Track.tryParse('nope'), isNull);
+    });
+  });
+
+  group('search history', () {
+    test('puts the newest search first and trims it', () {
+      expect(addToSearchHistory(['queen'], '  abba '), ['abba', 'queen']);
+    });
+
+    test('a repeat moves up instead of duplicating, ignoring case', () {
+      expect(addToSearchHistory(['abba', 'Queen'], 'queen'), ['queen', 'abba']);
+    });
+
+    test('ignores blank queries', () {
+      final history = ['abba'];
+      expect(addToSearchHistory(history, '   '), same(history));
+    });
+
+    test('keeps only the most recent', () {
+      final full = [for (var i = 0; i < searchHistoryLimit; i += 1) 'q$i'];
+      final next = addToSearchHistory(full, 'new');
+      expect(next, hasLength(searchHistoryLimit));
+      expect(next.first, 'new');
+      expect(next, isNot(contains('q${searchHistoryLimit - 1}')));
     });
   });
 }
