@@ -117,11 +117,25 @@ class LibraryHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              MusoButton(
-                label: 'Shuffle',
-                size: ControlSize.sm,
-                disabled: shuffleDisabled,
-                onPressed: onShuffle,
+              // Centred on each other: the gear's touch target is taller than the button, so
+              // bottom-aligning them with the title left the gear sitting high.
+              Row(
+                children: [
+                  MusoButton(
+                    label: 'Shuffle',
+                    size: ControlSize.sm,
+                    disabled: shuffleDisabled,
+                    onPressed: onShuffle,
+                  ),
+                  const SizedBox(width: 4),
+                  // Settings lives here while the Home tab, which used to carry it, is hidden.
+                  MusoIconButton(
+                    icon: AppIcons.settings,
+                    semanticLabel: 'Settings',
+                    color: palette.content,
+                    onPressed: () => navigatorKey.currentState?.pushNamed(AppRoutes.settings),
+                  ),
+                ],
               ),
             ],
           ),

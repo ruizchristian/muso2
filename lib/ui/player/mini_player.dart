@@ -9,11 +9,10 @@ import '../../theme/layout.dart';
 import '../widgets/app_icons.dart';
 import '../widgets/artwork.dart';
 import '../widgets/buttons.dart';
-import '../widgets/glass_panel.dart';
 import '../widgets/muso_text.dart';
 import '../widgets/pressable_scale.dart';
 
-/// Persistent capsule above the tab bar. Mounted once above the navigator so it survives every
+/// Persistent full-width bar resting directly on the tab bar. Mounted once above the navigator so it survives every
 /// route change, and hidden wherever it would sit on top of something the user is working with:
 /// the full-screen player, the edit form (whose fields and Save button it covered, and which it
 /// followed up above the keyboard), and any sheet or dialog.
@@ -36,12 +35,13 @@ class MiniPlayerOverlay extends StatelessWidget {
             route == AppRoutes.trackEdit ||
             routeTracker.popupOpen.value;
 
-        // Clear of the tab bar where there is one, otherwise clear of the safe area — plus the gap
-        // a floating capsule needs.
-        final resting =
-            (hasTabBar ? Layout.tabBarBaseHeight : 0) + media.padding.bottom + Layout.miniPlayerGap;
-        // An open keyboard covers the tab bar entirely, so the capsule rides on top of it instead.
-        final bottom = max(resting, media.viewInsets.bottom + Layout.miniPlayerGap);
+        // Flush on the tab bar where there is one, otherwise on the safe area. On the tab bar it
+        // sinks over the bar's top border, so no line shows between the two.
+        final resting = hasTabBar
+            ? Layout.tabBarBaseHeight + media.padding.bottom - Layout.tabBarBorder
+            : media.padding.bottom;
+        // An open keyboard covers the tab bar entirely, so the bar rides on top of it instead.
+        final bottom = max(resting, media.viewInsets.bottom);
 
         return ValueListenableBuilder<String?>(
           valueListenable: engine.currentTrackId,
@@ -49,8 +49,8 @@ class MiniPlayerOverlay extends StatelessWidget {
             final visible = trackId != null && !hidden;
 
             return Positioned(
-              left: 12,
-              right: 12,
+              left: 0,
+              right: 0,
               bottom: bottom,
               child: IgnorePointer(
                 ignoring: !visible,
@@ -91,28 +91,36 @@ class _MiniPlayer extends StatelessWidget {
         final tint = context.artworkColorFor(seed);
 
         return PressableScale(
-          activeScale: 0.98,
+          // A full-width bar shrinking away from the screen edges looks broken, so it does not
+          // scale on press.
+          activeScale: 1,
           semanticLabel: 'Now playing: ${track.title} by ${track.artist}',
           semanticHint: 'Opens the full player',
           onTap: openPlayer,
-          child: GlassPanel(
-            glow: true,
-            intensity: 45,
-            height: Layout.miniPlayerHeight,
+          child: ColoredBox(
+            color: palette.surface,
             child: SizedBox(
-              height: Layout.miniPlayerHeight - 2,
+              height: Layout.miniPlayerHeight,
               child: Stack(
                 children: [
                   // Album tint behind the content, cross-faded on track change. Low alpha: at full
-                  // strength it would flood the capsule and there would be no glass left to see.
+                  // strength it would flood the bar.
                   Positioned.fill(
                     child: AnimatedContainer(
                       duration: Duration(milliseconds: reducedMotion(context) ? 0 : 320),
                       color: tint.withValues(alpha: 0.3),
                     ),
                   ),
+                  // Top-edge highlight, the one line that separates the bar from the list behind.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 1,
+                    child: ColoredBox(color: palette.glow.withValues(alpha: 0.35)),
+                  ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
                         Artwork(seed: seed, size: 44, gradient: true, coverIds: [track.id]),
@@ -146,33 +154,6 @@ class _MiniPlayer extends StatelessWidget {
                           onPressed: engine.next,
                         ),
                       ],
-                    ),
-                  ),
-                  // Neon hairline along the bottom edge, clipped by the capsule's own radius so
-                  // it tapers into the corners instead of running past them.
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 2,
-                    child: ExcludeSemantics(
-                      child: ValueListenableBuilder<ProgressState>(
-                        valueListenable: engine.progress,
-                        builder: (context, progress, _) {
-                          final fraction = progress.durationMs > 0
-                              ? min(1.0, progress.positionMs / progress.durationMs)
-                              : 0.0;
-
-                          return ColoredBox(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            child: FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor: fraction,
-                              child: ColoredBox(color: palette.glow),
-                            ),
-                          );
-                        },
-                      ),
                     ),
                   ),
                 ],

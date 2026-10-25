@@ -32,7 +32,4 @@ class ContentContainer extends StatelessWidget {
 /// Inside the tab shell the bottom safe area is already paid by the tab bar (the shell removes it
 /// from `MediaQuery`), so this one formula is right on every screen.
 double scrollPaddingOf(BuildContext context) =>
-    MediaQuery.paddingOf(context).bottom +
-    Layout.miniPlayerGap +
-    Layout.miniPlayerHeight +
-    Layout.scrollTailSpace;
+    MediaQuery.paddingOf(context).bottom + Layout.miniPlayerHeight + Layout.scrollTailSpace;

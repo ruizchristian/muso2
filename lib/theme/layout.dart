@@ -9,9 +9,8 @@ abstract final class Layout {
   /// Height of the mini player, used to pad scroll content so nothing hides behind it.
   static const miniPlayerHeight = 60.0;
 
-  /// Gap between the floating mini player capsule and the tab bar. Without it the rounded corners
-  /// sit flush against the bar and just look like a mistake.
-  static const miniPlayerGap = 8.0;
+  /// The tab bar's top border. The mini player sits over it so no line shows between the two.
+  static const tabBarBorder = 0.5;
 
   /// Trailing space after the last row of a scroll list.
   static const scrollTailSpace = 12.0;
