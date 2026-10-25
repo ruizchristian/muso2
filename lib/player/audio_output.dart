@@ -55,9 +55,12 @@ abstract class AudioOutput {
 }
 
 /// Output routes whose removal should stop the music rather than blast it out of the speaker.
+///
+/// Bluetooth SCO is left out on purpose: it is the headset's call/voice-assistant link and comes
+/// and goes on its own while A2DP (the music link) stays connected. Pausing on it stopped the
+/// music at random and, after a call, cancelled just_audio's automatic resume.
 const _pauseOnDisconnectTypes = {
   AudioDeviceType.bluetoothA2dp,
-  AudioDeviceType.bluetoothSco,
   AudioDeviceType.wiredHeadset,
   AudioDeviceType.wiredHeadphones,
   AudioDeviceType.usbAudio,
@@ -83,6 +86,11 @@ const _updateInterval = Duration(milliseconds: 500);
 class JustAudioOutput extends AudioOutput {
   AudioPlayer? _player;
   _MusoAudioHandler? _handler;
+  AudioSession? _session;
+
+  /// Another app took audio focus away (a call, a video, a voice message, navigation…) and has
+  /// not given it back yet. See [_play].
+  bool _focusLost = false;
   final _subscriptions = <StreamSubscription<Object?>>[];
   bool _initialised = false;
   bool _finishReported = false;
@@ -171,12 +179,13 @@ class JustAudioOutput extends AudioOutput {
     if (_initialised) return;
     _initialised = true;
 
-    final session = await AudioSession.instance;
+    final session = _session = await AudioSession.instance;
     // Music: plays in the background, takes exclusive focus so it does not talk over another
     // player, and ducks/pauses for calls (just_audio handles those interruptions itself).
     await session.configure(const AudioSessionConfiguration.music());
 
     _subscriptions
+      ..add(session.interruptionEventStream.listen((event) => _focusLost = event.begin))
       // Headphones unplugged. Android broadcasts this without revoking audio focus, so focus
       // handling never sees it.
       ..add(session.becomingNoisyEventStream.listen((_) => commands?.pause()))
@@ -242,7 +251,21 @@ class JustAudioOutput extends AudioOutput {
   }
 
   @override
-  void play() => unawaited(_p.play().catchError((Object _) {}));
+  void play() => unawaited(_play().catchError((Object _) {}));
+
+  /// audio_session only asks Android for focus when it believes it does not hold it, and it still
+  /// believes so after a transient loss. Pressing play in that state skipped the request, so the
+  /// player ran (the app showed it playing, the scrubber moved) while Android kept it muted for
+  /// not owning focus. Dropping the stale request first makes `play` ask for focus for real; if
+  /// Android refuses, as during a call, just_audio reports the player as paused instead.
+  Future<void> _play() async {
+    final session = _session;
+    if (_focusLost && session != null && !_p.playing) {
+      _focusLost = false;
+      await session.setActive(false);
+    }
+    await _p.play();
+  }
 
   @override
   void pause() => unawaited(_p.pause().catchError((Object _) {}));
