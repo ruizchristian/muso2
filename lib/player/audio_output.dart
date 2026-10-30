@@ -25,8 +25,23 @@ class OutputStatus {
   final int positionMs;
   final int durationMs;
 
-  /// True exactly once per load, on the push where the track reached its end.
+  /// True exactly once each time the track reaches its end.
   final bool didJustFinish;
+}
+
+/// Turns the player's "completed" state into a single finish event.
+///
+/// Re-arms when the player leaves that state rather than on each load: repeat-one and scrubbing
+/// back restart a track with a seek, and that second run has to report its end as well.
+class FinishDetector {
+  bool _reported = false;
+
+  /// Returns true only on the first call of each run of `completed`.
+  bool update({required bool completed}) {
+    final justFinished = completed && !_reported;
+    _reported = completed;
+    return justFinished;
+  }
 }
 
 /// What the lock screen, notification and headset buttons can ask the engine to do.
@@ -93,7 +108,7 @@ class JustAudioOutput extends AudioOutput {
   bool _focusLost = false;
   final _subscriptions = <StreamSubscription<Object?>>[];
   bool _initialised = false;
-  bool _finishReported = false;
+  final _finish = FinishDetector();
 
   AudioPlayer get _p => _player ??= _createPlayer();
 
@@ -119,8 +134,7 @@ class JustAudioOutput extends AudioOutput {
     final player = _p;
     final state = player.processingState;
     final finished = state == ProcessingState.completed;
-    final didJustFinish = finished && !_finishReported;
-    if (didJustFinish) _finishReported = true;
+    final didJustFinish = _finish.update(completed: finished);
 
     onStatus?.call(
       OutputStatus(
@@ -221,8 +235,6 @@ class JustAudioOutput extends AudioOutput {
 
   @override
   Future<bool> load(String uri, Track track) async {
-    _finishReported = false;
-
     _handler?.mediaItem.add(
       svc.MediaItem(
         id: track.id,

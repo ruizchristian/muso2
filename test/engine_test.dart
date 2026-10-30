@@ -129,6 +129,18 @@ void main() {
     expect(output.lastSeek, 0);
   });
 
+  test('every run of a track reports its end once, even when restarted by a seek', () {
+    final finish = FinishDetector();
+
+    expect(finish.update(completed: false), isFalse);
+    expect(finish.update(completed: true), isTrue);
+    // Status keeps ticking while the player sits on "completed", including during the seek.
+    expect(finish.update(completed: true), isFalse);
+
+    expect(finish.update(completed: false), isFalse);
+    expect(finish.update(completed: true), isTrue);
+  });
+
   test('previous restarts past three seconds, otherwise steps back', () async {
     await engine.playTracks(tracks, 2);
 
